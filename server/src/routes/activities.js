@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { fail, ok } = require('../utils/errors');
 const { authRequired, requireRole, optionalAuth } = require('../middleware/auth');
+const { channelState } = require('../utils/channel-state');
 
 const router = express.Router();
 
@@ -128,9 +129,16 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const [rows] = await pool.query(sql, params);
 
-    // 满员过滤放外层（依赖聚合子查询，避免 SQL 重复嵌套）
+    // REQ-04：附加系统实时判定的报名通道状态（满员/截止/已开始自动关闭）
+    rows.forEach(a => {
+      const st = channelState(a, a.registered_count);
+      a.channel_state = st.code;
+      a.channel_state_text = st.text;
+    });
+
+    // 学生"当前可报名"列表：只保留通道开放的活动（与报名接口同一判定口径）
     const data = onlyRegisterable
-      ? rows.filter(a => Number(a.registered_count) < Number(a.capacity))
+      ? rows.filter(a => a.channel_state === 'open')
       : rows;
     return ok(res, data, 'OK');
   } catch (err) {
@@ -154,12 +162,17 @@ router.get('/:id', async (req, res) => {
               DATE_FORMAT(a.register_start,'%Y-%m-%d %H:%i:%s') AS register_start,
               DATE_FORMAT(a.register_end,'%Y-%m-%d %H:%i:%s') AS register_end,
               a.description, a.publisher_no, a.status,
+              (SELECT COUNT(*) FROM registrations r
+                WHERE r.activity_id = a.id AND r.status = 'confirmed') AS registered_count,
               u.name AS publisher_name
        FROM activities a JOIN users u ON u.user_no = a.publisher_no
        WHERE a.id = ?`,
       [id]
     );
     if (rows.length === 0) return fail(res, 404, '活动不存在');
+    const st = channelState(rows[0], rows[0].registered_count);
+    rows[0].channel_state = st.code;
+    rows[0].channel_state_text = st.text;
     return ok(res, rows[0], 'OK');
   } catch (err) {
     console.error('activity detail error:', err);

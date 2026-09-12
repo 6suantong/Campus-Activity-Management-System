@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { getToken, clearAuth } from './auth';
+import { getToken } from './auth';
+import { logout } from '../store/auth';
 
 const request = axios.create({
   baseURL: '/api',
@@ -28,7 +29,7 @@ request.interceptors.response.use(
   error => {
     const status = error.response?.status;
     if (status === 401) {
-      clearAuth();
+      logout();
       // 避免循环跳转：如不在登录页则跳转
       if (!location.pathname.startsWith('/login')) {
         location.href = '/login?expired=1';
