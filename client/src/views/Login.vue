@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { login } from '../api/auth';
-import { setAuth } from '../utils/auth';
+import { login as loginApi } from '../api/auth';
+import { login } from '../store/auth';
 
 const router = useRouter();
 const route = useRoute();
@@ -32,8 +32,8 @@ async function submit() {
   loading.value = true;
   msg.value = { text: '', type: '' };
   try {
-    const data = await login(form.value);
-    setAuth(data.token, data.user);
+    const data = await loginApi(form.value);
+    login(data.token, data.user);
     router.replace(route.query.redirect || '/activities');
   } catch (err) {
     msg.value = { text: err.message || '登录失败', type: 'fail' };

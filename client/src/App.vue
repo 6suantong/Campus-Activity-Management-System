@@ -1,21 +1,20 @@
 <script setup>
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getToken, clearAuth, getUser } from './utils/auth';
+import { authState, isLoggedIn, logout as logoutStore } from './store/auth';
 
 const router = useRouter();
-const loggedIn = computed(() => !!getToken());
-const user = computed(() => getUser());
+const user = computed(() => authState.user);
 
 function logout() {
-  clearAuth();
+  logoutStore();
   router.push('/login');
 }
 </script>
 
 <template>
   <div>
-    <div v-if="loggedIn" class="navbar">
+    <div v-if="isLoggedIn" class="navbar">
       <div style="display:flex;align-items:center;gap:20px">
         <strong>校园活动管理系统 V1.0</strong>
         <router-link to="/activities" style="font-size:14px">活动列表</router-link>
