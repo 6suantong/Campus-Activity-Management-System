@@ -12,10 +12,12 @@ Desktop.ini
 *.log
 *.tmp
 *.bak
+.git-commit-msg.txt
 
 # 环境变量 / 敏感信息
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 
