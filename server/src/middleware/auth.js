@@ -26,13 +26,37 @@ function authRequired(req, res, next) {
  * 用法：router.post('/', authRequired, requireRole('teacher'), handler)
  * 必须在 authRequired 之后使用（依赖 req.user）
  */
+const ROLE_DENY_MSG = {
+  teacher: '无权操作：仅教师可发布活动',
+  student: '无权操作：仅学生可报名活动'
+};
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return fail(res, 403, '无权操作：仅教师可发布活动');
+      const need = roles[0];
+      return fail(res, 403, ROLE_DENY_MSG[need] || '无权操作：权限不足');
     }
     return next();
   };
 }
 
-module.exports = { authRequired, requireRole };
+/**
+ * 可选鉴权：带合法 token 时挂载 req.user；不带/失效时不拦截（req.user 为空）
+ * 用于公共列表：登录学生可看到"我是否已报名"标记，未登录也能浏览
+ */
+function optionalAuth(req, res, next) {
+  const header = req.headers['authorization'] || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (token) {
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = { id: payload.id, user_no: payload.user_no, name: payload.name, role: payload.role };
+    } catch (err) {
+      // 失效令牌按未登录处理，不报错
+    }
+  }
+  return next();
+}
+
+module.exports = { authRequired, requireRole, optionalAuth };

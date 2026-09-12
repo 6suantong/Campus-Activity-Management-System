@@ -20,6 +20,7 @@ function logout() {
         <strong>校园活动管理系统 V1.0</strong>
         <router-link to="/activities" style="font-size:14px">活动列表</router-link>
         <router-link v-if="user?.role === 'teacher'" to="/activities/create" style="font-size:14px">发布活动</router-link>
+        <router-link v-if="user?.role === 'student'" to="/my-registrations" style="font-size:14px">我的报名</router-link>
       </div>
       <div class="right">
         <span>{{ user?.name }}（{{ user?.role === 'teacher' ? '教师' : '学生' }}）</span>

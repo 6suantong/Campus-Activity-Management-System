@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { fail, ok } = require('../utils/errors');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired, requireRole, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -80,20 +80,35 @@ router.post('/', authRequired, requireRole('teacher'), async (req, res) => {
 });
 
 /**
- * GET /api/activities  —— 公共活动列表
- * REQ-02：发布后活动在公共列表显示且字段完整（按发布时间倒序）
- * 可选 query: onlyRegisterable=true 供 REQ-03 使用（当前可报名过滤）
+ * GET /api/activities  —— 活动列表
+ * REQ-02：默认返回全部活动（教师视角，按发布时间倒序）
+ * REQ-03：?onlyRegisterable=true 仅返回"当前可报名"活动
+ *         报名窗口内(开始<=现在<截止) + 活动未开始 + 状态开启 + 人数未满
+ * 带登录令牌时每条活动附加 my_registered（当前学生是否已报名）
  */
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const onlyRegisterable = req.query.onlyRegisterable === 'true';
     const where = [];
-    const params = [];
     if (onlyRegisterable) {
-      // REQ-03：报名截止未到 + 活动未开始 + 状态开启（满员判断需要报名记录，REQ-04 接入）
-      where.push(`a.status = 'open' AND a.start_time > NOW() AND a.register_end > NOW() AND a.register_start <= NOW()`);
+      where.push(`a.status = 'open'
+                  AND a.start_time > NOW()
+                  AND a.register_start <= NOW()
+                  AND a.register_end > NOW()`);
     }
-    const sql = `
+
+    // 已确认报名人数（LEFT JOIN 保证无人报名的活动也显示）
+    const selectCount = `(SELECT COUNT(*) FROM registrations r
+                          WHERE r.activity_id = a.id AND r.status = 'confirmed') AS registered_count`;
+    // 当前登录学生是否已报名
+    const myNo = req.user ? req.user.user_no : null;
+    const selectMine = myNo
+      ? `EXISTS(SELECT 1 FROM registrations r2
+                WHERE r2.activity_id = a.id AND r2.student_no = ? AND r2.status = 'confirmed') AS my_registered`
+      : `FALSE AS my_registered`;
+    const params = myNo ? [myNo] : [];
+
+    let sql = `
       SELECT a.id, a.title,
              DATE_FORMAT(a.start_time,'%Y-%m-%d %H:%i:%s') AS start_time,
              DATE_FORMAT(a.end_time,'%Y-%m-%d %H:%i:%s') AS end_time,
@@ -102,14 +117,22 @@ router.get('/', async (req, res) => {
              DATE_FORMAT(a.register_end,'%Y-%m-%d %H:%i:%s') AS register_end,
              a.description, a.publisher_no, a.status,
              DATE_FORMAT(a.created_at,'%Y-%m-%d %H:%i:%s') AS created_at,
-             u.name AS publisher_name
+             u.name AS publisher_name,
+             ${selectCount},
+             ${selectMine}
       FROM activities a
       JOIN users u ON u.user_no = a.publisher_no
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY a.created_at DESC
       LIMIT 100`;
+
     const [rows] = await pool.query(sql, params);
-    return ok(res, rows, 'OK');
+
+    // 满员过滤放外层（依赖聚合子查询，避免 SQL 重复嵌套）
+    const data = onlyRegisterable
+      ? rows.filter(a => Number(a.registered_count) < Number(a.capacity))
+      : rows;
+    return ok(res, data, 'OK');
   } catch (err) {
     console.error('list activities error:', err);
     return fail(res, 500, '服务器内部错误');
