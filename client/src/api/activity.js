@@ -14,3 +14,13 @@ export function listActivities(params) {
 export function getActivity(id) {
   return request.get(`/activities/${id}`);
 }
+
+// REQ-03 学生报名活动
+export function registerActivity(activityId) {
+  return request.post('/registrations', { activity_id: activityId });
+}
+
+// REQ-03 我的报名
+export function listMyRegistrations() {
+  return request.get('/registrations/mine');
+}
