@@ -17,7 +17,16 @@ function fmt(t) {
   return String(t).replace('T', ' ').slice(0, 16);
 }
 
-const statusText = { open: '报名中', closed: '已关闭', cancelled: '已取消' };
+// REQ-04：通道状态配色（open 绿色；其余为系统自动关闭态，灰/红）
+const stateStyle = {
+  open: 'background:#dcfce7;color:#16a34a',
+  full: 'background:#fee2e2;color:#dc2626',
+  deadline: 'background:#f3f4f6;color:#6b7280',
+  started: 'background:#f3f4f6;color:#6b7280',
+  not_open: 'background:#fef9c3;color:#ca8a04',
+  cancelled: 'background:#f3f4f6;color:#6b7280',
+  closed: 'background:#f3f4f6;color:#6b7280'
+};
 
 async function load() {
   loading.value = true;
@@ -78,8 +87,8 @@ onMounted(load);
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <h4 style="margin:0;font-size:17px">{{ a.title }}</h4>
           <span style="font-size:12px;padding:3px 10px;border-radius:12px"
-            :style="a.status === 'open' ? 'background:#dcfce7;color:#16a34a' : 'background:#f3f4f6;color:#6b7280'">
-            {{ statusText[a.status] || a.status }}
+            :style="stateStyle[a.channel_state] || stateStyle.closed">
+            {{ a.channel_state_text || '报名中' }}
           </span>
         </div>
         <div style="font-size:13px;color:#6b7280;line-height:1.9">
