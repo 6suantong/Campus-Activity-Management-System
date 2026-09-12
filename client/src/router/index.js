@@ -16,6 +16,12 @@ const routes = [
     name: 'activity-create',
     component: () => import('../views/ActivityCreate.vue'),
     meta: { requiresAuth: true, roles: ['teacher'] }
+  },
+  {
+    path: '/my-registrations',
+    name: 'my-registrations',
+    component: () => import('../views/MyRegistrations.vue'),
+    meta: { requiresAuth: true, roles: ['student'] }
   }
 ];
 

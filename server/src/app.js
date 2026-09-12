@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const activityRoutes = require('./routes/activities');
+const registrationRoutes = require('./routes/registrations');
 
 const app = express();
 
@@ -18,6 +19,9 @@ app.use('/api/auth', authRoutes);
 
 // REQ-02 活动路由
 app.use('/api/activities', activityRoutes);
+
+// REQ-03 报名路由
+app.use('/api/registrations', registrationRoutes);
 
 // 统一 404
 app.use((req, res) => res.status(404).json({ code: 404, message: 'Not Found', data: null }));
