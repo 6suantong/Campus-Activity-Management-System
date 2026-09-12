@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { getToken } from '../utils/auth';
+import { getToken, getUser } from '../utils/auth';
 
 const routes = [
   { path: '/', redirect: '/activities' },
@@ -10,6 +10,12 @@ const routes = [
     name: 'activities',
     component: () => import('../views/Activities.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/activities/create',
+    name: 'activity-create',
+    component: () => import('../views/ActivityCreate.vue'),
+    meta: { requiresAuth: true, roles: ['teacher'] }
   }
 ];
 
@@ -22,6 +28,10 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !getToken()) {
     return next({ path: '/login', query: { redirect: to.fullPath } });
+  }
+  // 角色限制：例如发布活动仅教师
+  if (to.meta.roles && !to.meta.roles.includes(getUser().role)) {
+    return next('/activities');
   }
   if (['/login', '/register'].includes(to.path) && getToken()) {
     return next('/activities');
