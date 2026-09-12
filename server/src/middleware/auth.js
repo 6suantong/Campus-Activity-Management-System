@@ -21,4 +21,18 @@ function authRequired(req, res, next) {
   }
 }
 
-module.exports = { authRequired };
+/**
+ * 角色限制中间件工厂
+ * 用法：router.post('/', authRequired, requireRole('teacher'), handler)
+ * 必须在 authRequired 之后使用（依赖 req.user）
+ */
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return fail(res, 403, '无权操作：仅教师可发布活动');
+    }
+    return next();
+  };
+}
+
+module.exports = { authRequired, requireRole };
