@@ -32,9 +32,9 @@ async function load() {
   loading.value = true;
   errorMsg.value = '';
   try {
-    // REQ-03：学生只看"当前可报名"；教师看全部活动用于管理
-    const params = isStudent ? { onlyRegisterable: 'true' } : {};
-    list.value = await listActivities(params);
+    // REQ-03/REQ-04：学生和教师都加载全部活动，后端统一附加 channel_state
+    // 前端根据 channel_state 渲染状态标签 + 控制报名按钮可用性
+    list.value = await listActivities();
   } catch (err) {
     errorMsg.value = err.message || '加载失败';
   } finally {
@@ -67,7 +67,7 @@ onMounted(load);
 <template>
   <div style="max-width:900px;margin:24px auto;padding:0 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0">{{ isStudent ? '当前可报名的活动' : '全部活动（教师视图）' }}</h3>
+      <h3 style="margin:0">{{ isStudent ? '全部活动' : '全部活动（教师视图）' }}</h3>
       <router-link v-if="!isStudent" to="/activities/create">
         <button>＋ 发布活动</button>
       </router-link>
@@ -78,7 +78,7 @@ onMounted(load);
     <div v-if="loading" style="color:#6b7280;font-size:14px">加载中...</div>
     <div v-else-if="errorMsg" class="msg fail">{{ errorMsg }}</div>
     <div v-else-if="list.length === 0" style="background:#fff;padding:32px;text-align:center;border-radius:10px;color:#6b7280">
-      {{ isStudent ? '当前没有可报名的活动（报名未开始、已截止、已满员或已开始的活动不显示）' : '暂无活动，点击右上角「发布活动」创建' }}
+      {{ isStudent ? '暂无活动' : '暂无活动，点击右上角「发布活动」创建' }}
     </div>
 
     <div v-else style="display:flex;flex-direction:column;gap:14px">
@@ -104,14 +104,16 @@ onMounted(load);
         </div>
         <p style="margin:10px 0 0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.7">{{ a.description }}</p>
 
-        <!-- REQ-03 学生报名操作区 -->
+        <!-- REQ-03 学生报名操作区：根据 channel_state 控制按钮禁用（REQ-04） -->
         <div v-if="isStudent" style="margin-top:14px;text-align:right">
           <button v-if="a.my_registered" disabled
             style="background:#f3f4f6;color:#6b7280;cursor:default">
             ✓ 已报名
           </button>
-          <button v-else :disabled="registeringId === a.id" @click="onRegister(a)">
-            {{ registeringId === a.id ? '提交中...' : '立即报名' }}
+          <button v-else :disabled="a.channel_state !== 'open' || registeringId === a.id"
+            @click="onRegister(a)"
+            :style="a.channel_state !== 'open' ? 'background:#f3f4f6;color:#6b7280;cursor:not-allowed' : ''">
+            {{ registeringId === a.id ? '提交中...' : (a.channel_state === 'open' ? '立即报名' : a.channel_state_text) }}
           </button>
         </div>
       </div>
