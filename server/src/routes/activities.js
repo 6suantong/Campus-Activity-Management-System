@@ -82,22 +82,15 @@ router.post('/', authRequired, requireRole('teacher'), async (req, res) => {
 
 /**
  * GET /api/activities  —— 活动列表
- * REQ-02：默认返回全部活动（教师视角，按发布时间倒序）
- * REQ-03：?onlyRegisterable=true 仅返回"当前可报名"活动
- *         报名窗口内(开始<=现在<截止) + 活动未开始 + 状态开启 + 人数未满
- * 带登录令牌时每条活动附加 my_registered（当前学生是否已报名）
+ * 返回全部活动（教师和学生视角一致），按发布时间倒序。
+ * 每条活动附加：
+ *   - registered_count  已确认报名人数
+ *   - channel_state / channel_state_text  系统实时判定的报名通道状态（REQ-04）
+ *   - my_registered     当前登录学生是否已报名（需带令牌）
+ * 前端根据 channel_state 决定报名按钮是否可用，保证各角色看到的活动卡片数量一致、状态标签可见。
  */
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const onlyRegisterable = req.query.onlyRegisterable === 'true';
-    const where = [];
-    if (onlyRegisterable) {
-      where.push(`a.status = 'open'
-                  AND a.start_time > NOW()
-                  AND a.register_start <= NOW()
-                  AND a.register_end > NOW()`);
-    }
-
     // 已确认报名人数（LEFT JOIN 保证无人报名的活动也显示）
     const selectCount = `(SELECT COUNT(*) FROM registrations r
                           WHERE r.activity_id = a.id AND r.status = 'confirmed') AS registered_count`;
@@ -123,24 +116,20 @@ router.get('/', optionalAuth, async (req, res) => {
              ${selectMine}
       FROM activities a
       JOIN users u ON u.user_no = a.publisher_no
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY a.created_at DESC
       LIMIT 100`;
 
     const [rows] = await pool.query(sql, params);
 
     // REQ-04：附加系统实时判定的报名通道状态（满员/截止/已开始自动关闭）
+    // 所有活动（无论是否可报名）都带上状态字段，供前端渲染状态标签和按钮禁用
     rows.forEach(a => {
       const st = channelState(a, a.registered_count);
       a.channel_state = st.code;
       a.channel_state_text = st.text;
     });
 
-    // 学生"当前可报名"列表：只保留通道开放的活动（与报名接口同一判定口径）
-    const data = onlyRegisterable
-      ? rows.filter(a => a.channel_state === 'open')
-      : rows;
-    return ok(res, data, 'OK');
+    return ok(res, rows, 'OK');
   } catch (err) {
     console.error('list activities error:', err);
     return fail(res, 500, '服务器内部错误');
