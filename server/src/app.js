@@ -23,6 +23,9 @@ app.use('/api/activities', activityRoutes);
 // REQ-03 报名路由
 app.use('/api/registrations', registrationRoutes);
 
+// V2.0 教师端（本人活动名单/导出，活动归属鉴权）
+app.use('/api/teacher', require('./routes/teacher'));
+
 // 统一 404
 app.use((req, res) => res.status(404).json({ code: 404, message: 'Not Found', data: null }));
 
