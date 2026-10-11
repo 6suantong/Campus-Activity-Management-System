@@ -13,7 +13,9 @@ const form = reactive({
   capacity: '',
   register_start: '',
   register_end: '',
-  description: ''
+  description: '',
+  requirement: '',     // V2.0 参加资格说明（可空）
+  need_review: false   // V2.0 是否需要审核报名
 });
 
 const errors = ref({});
@@ -64,7 +66,12 @@ async function submit() {
   loading.value = true;
   msg.value = { text: '', type: '' };
   try {
-    await createActivity({ ...form, capacity: Number(form.capacity) });
+    await createActivity({
+      ...form,
+      capacity: Number(form.capacity),
+      requirement: form.requirement.trim() || null,
+      need_review: form.need_review ? 1 : 0
+    });
     msg.value = { text: '发布成功，正在返回活动列表...', type: 'ok' };
     setTimeout(() => router.push('/activities'), 800);
   } catch (err) {
@@ -133,6 +140,20 @@ async function submit() {
         <textarea v-model="form.description" rows="4" placeholder="介绍活动内容、面向对象、注意事项等"
           style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;resize:vertical"></textarea>
         <div v-if="errors.description" class="err">{{ errors.description }}</div>
+      </div>
+
+      <div class="form-item">
+        <label>参加资格说明（选填）</label>
+        <input v-model="form.requirement" placeholder="例如：限软件学院大一；为空表示不限" maxlength="500" />
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px">填写后将在活动详情中展示给学生</div>
+      </div>
+
+      <div class="form-item">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input v-model="form.need_review" type="checkbox" style="width:16px;height:16px" />
+          开启报名审核
+        </label>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px">开启后学生报名需经你审核通过才生效，可在"我发布的活动 → 查看名单"中处理</div>
       </div>
 
       <div style="display:flex;gap:10px;margin-top:6px">

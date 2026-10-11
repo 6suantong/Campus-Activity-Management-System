@@ -22,6 +22,24 @@ const routes = [
     name: 'my-registrations',
     component: () => import('../views/MyRegistrations.vue'),
     meta: { requiresAuth: true, roles: ['student'] }
+  },
+  {
+    path: '/teacher/activities',
+    name: 'teacher-activities',
+    component: () => import('../views/TeacherActivities.vue'),
+    meta: { requiresAuth: true, roles: ['teacher'] }
+  },
+  {
+    path: '/teacher/activities/:id/registrations',
+    name: 'teacher-registrations',
+    component: () => import('../views/TeacherRegistrations.vue'),
+    meta: { requiresAuth: true, roles: ['teacher'] }
+  },
+  {
+    path: '/admin/users',
+    name: 'admin-users',
+    component: () => import('../views/AdminUsers.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] }
   }
 ];
 
