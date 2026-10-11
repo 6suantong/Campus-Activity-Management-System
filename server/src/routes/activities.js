@@ -97,12 +97,14 @@ router.get('/', optionalAuth, async (req, res) => {
     // 已确认报名人数（LEFT JOIN 保证无人报名的活动也显示）
     const selectCount = `(SELECT COUNT(*) FROM registrations r
                           WHERE r.activity_id = a.id AND r.status = 'confirmed') AS registered_count`;
-    // 当前登录学生是否已报名
+    // 当前登录学生的有效报名状态（confirmed/waitlisted/pending 任一即视为"已报名/已申请"）
+    // 返回具体状态文本，前端据此显示"已报名/候补中/待审核"并禁用操作按钮
     const myNo = req.user ? req.user.user_no : null;
     const selectMine = myNo
-      ? `EXISTS(SELECT 1 FROM registrations r2
-                WHERE r2.activity_id = a.id AND r2.student_no = ? AND r2.status = 'confirmed') AS my_registered`
-      : `FALSE AS my_registered`;
+      ? `(SELECT r2.status FROM registrations r2
+          WHERE r2.activity_id = a.id AND r2.student_no = ? AND r2.status IN ('confirmed','waitlisted','pending')
+          LIMIT 1) AS my_reg_status`
+      : `NULL AS my_reg_status`;
     const params = myNo ? [myNo] : [];
 
     let sql = `
@@ -130,6 +132,12 @@ router.get('/', optionalAuth, async (req, res) => {
       const st = channelState(a, a.registered_count);
       a.channel_state = st.code;
       a.channel_state_text = st.text;
+      // V2.0：把学生的有效报名状态映射为前端易用字段
+      // my_registered=1 表示已有任一有效记录（前端禁用按钮）；my_reg_status_text 显示具体状态
+      const MY_STATUS_TEXT = { confirmed: '已报名', waitlisted: '候补中', pending: '待审核' };
+      a.my_registered = a.my_reg_status ? 1 : 0;
+      a.my_reg_status_text = a.my_reg_status ? (MY_STATUS_TEXT[a.my_reg_status] || '已报名') : null;
+      delete a.my_reg_status;
     });
 
     return ok(res, rows, 'OK');

@@ -132,7 +132,7 @@ onMounted(load);
         <div v-if="isStudent" style="margin-top:14px;text-align:right">
           <button v-if="a.my_registered" disabled
             style="background:#f3f4f6;color:#6b7280;cursor:default">
-            ✓ 已报名
+            ✓ {{ a.my_reg_status_text || '已报名' }}
           </button>
           <!-- 满员且未报名：提供申请候补入口 -->
           <button v-else-if="a.channel_state === 'full'" :disabled="registeringId === a.id"
