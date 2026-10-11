@@ -40,6 +40,9 @@ router.post('/', authRequired, requireRole('teacher'), async (req, res) => {
   const title = String(b.title).trim();
   const location = String(b.location).trim();
   const description = String(b.description).trim();
+  // V2.0：活动级参加资格说明（可空）与是否需要审核开关（US-V2-11）
+  const requirement = b.requirement === undefined || b.requirement === null ? null : String(b.requirement).trim();
+  const needReview = b.need_review === true || b.need_review === 1 || b.need_review === '1' ? 1 : 0;
   const startTime = normalizeDateTime(b.start_time);
   const endTime = normalizeDateTime(b.end_time);
   const registerStart = normalizeDateTime(b.register_start);
@@ -69,9 +72,9 @@ router.post('/', authRequired, requireRole('teacher'), async (req, res) => {
   try {
     const [result] = await pool.query(
       `INSERT INTO activities
-       (title, start_time, end_time, location, capacity, register_start, register_end, description, publisher_no)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, startTime, endTime, location, capacity, registerStart, registerEnd, description, req.user.user_no]
+       (title, start_time, end_time, location, capacity, register_start, register_end, description, requirement, need_review, publisher_no)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, startTime, endTime, location, capacity, registerStart, registerEnd, description, requirement, needReview, req.user.user_no]
     );
     return ok(res, { id: result.insertId }, '发布成功');
   } catch (err) {
@@ -109,7 +112,7 @@ router.get('/', optionalAuth, async (req, res) => {
              a.location, a.capacity,
              DATE_FORMAT(a.register_start,'%Y-%m-%d %H:%i:%s') AS register_start,
              DATE_FORMAT(a.register_end,'%Y-%m-%d %H:%i:%s') AS register_end,
-             a.description, a.publisher_no, a.status,
+             a.description, a.requirement, a.need_review, a.publisher_no, a.status,
              DATE_FORMAT(a.created_at,'%Y-%m-%d %H:%i:%s') AS created_at,
              u.name AS publisher_name,
              ${selectCount},
@@ -150,7 +153,7 @@ router.get('/:id', async (req, res) => {
               a.location, a.capacity,
               DATE_FORMAT(a.register_start,'%Y-%m-%d %H:%i:%s') AS register_start,
               DATE_FORMAT(a.register_end,'%Y-%m-%d %H:%i:%s') AS register_end,
-              a.description, a.publisher_no, a.status,
+              a.description, a.requirement, a.need_review, a.publisher_no, a.status,
               (SELECT COUNT(*) FROM registrations r
                 WHERE r.activity_id = a.id AND r.status = 'confirmed') AS registered_count,
               u.name AS publisher_name

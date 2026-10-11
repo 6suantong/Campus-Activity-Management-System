@@ -1,15 +1,15 @@
 -- 报名记录表：支撑 REQ-03 学生报名 / REQ-04 满员与截止控制 / V2.0 取消报名、候补与递补
 -- 工程意图约束：同一学生对同一活动只能报名一次（student_no + activity_id 唯一）
--- V2.0 状态机：confirmed(已确认) / waitlisted(候补中) / cancelled(已取消，含主动取消与退出候补)
+-- V2.0 状态机：confirmed(已确认) / waitlisted(候补中) / pending(待审核) / cancelled(已取消，含主动取消、退出候补与审核拒绝)
 --   取消报名与退出候补均为逻辑删除（状态置 cancelled），保留历史可追溯；
 --   候补顺序以 created_at 升序为唯一依据（R-V2-09 先到先得），不维护连续序号字段；
---   统计"已报名人数"只计 status='confirmed'。
+--   统计"已报名人数"只计 status='confirmed'；pending 不占名额，审核通过后按剩余位置转 confirmed/waitlisted。
 DROP TABLE IF EXISTS `registrations`;
 CREATE TABLE `registrations` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
   `activity_id` BIGINT UNSIGNED NOT NULL COMMENT '活动ID(activities.id)',
   `student_no` VARCHAR(32) NOT NULL COMMENT '报名学生学号(users.user_no)',
-  `status` ENUM('confirmed','waitlisted','cancelled') NOT NULL DEFAULT 'confirmed' COMMENT '报名状态:已确认/候补中/已取消',
+  `status` ENUM('confirmed','waitlisted','pending','cancelled') NOT NULL DEFAULT 'confirmed' COMMENT '报名状态:已确认/候补中/待审核/已取消',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间（候补排序依据）',
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '状态最后变更时间',
   PRIMARY KEY (`id`),

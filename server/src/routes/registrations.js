@@ -25,7 +25,7 @@ router.post('/', authRequired, requireRole('student'), async (req, res) => {
 
     // 锁定活动行：并发报名同一活动时，后来的事务在此等待，提交后才能读到最新人数
     const [acts] = await conn.query(
-      'SELECT id, title, status, capacity, start_time, register_start, register_end FROM activities WHERE id = ? FOR UPDATE',
+      'SELECT id, title, status, capacity, start_time, register_start, register_end, need_review FROM activities WHERE id = ? FOR UPDATE',
       [activityId]
     );
     if (acts.length === 0) {
@@ -68,6 +68,16 @@ router.post('/', authRequired, requireRole('student'), async (req, res) => {
         ? '你已在该活动候补队列中，请勿重复申请'
         : '你已报名该活动，请勿重复报名';
       return fail(res, 409, msg);
+    }
+
+    // 需审核活动：报名先记为 pending（不占名额、不计入 confirmed），等待教师审核（US-V2-10）
+    if (Number(a.need_review) === 1) {
+      await conn.query(
+        "INSERT INTO registrations (activity_id, student_no, status) VALUES (?, ?, 'pending')",
+        [activityId, studentNo]
+      );
+      await conn.commit();
+      return ok(res, { activity_id: activityId, status: 'pending' }, '报名已提交，等待教师审核');
     }
 
     await conn.query(
@@ -319,7 +329,7 @@ router.get('/mine', authRequired, requireRole('student'), async (req, res) => {
       [req.user.user_no]
     );
 
-    const STATUS_TEXT = { confirmed: '已确认', waitlisted: '候补中', cancelled: '已取消' };
+    const STATUS_TEXT = { confirmed: '已确认', waitlisted: '候补中', pending: '待审核', cancelled: '已取消' };
     rows.forEach(r => {
       r.status_text = STATUS_TEXT[r.registration_status] || r.registration_status;
       // 仅候补中的记录有排队顺序，其余置 null
