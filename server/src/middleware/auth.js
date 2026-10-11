@@ -28,7 +28,8 @@ function authRequired(req, res, next) {
  */
 const ROLE_DENY_MSG = {
   teacher: '无权操作：仅教师可发布活动',
-  student: '无权操作：仅学生可报名活动'
+  student: '无权操作：仅学生可报名活动',
+  admin: '无权操作：仅系统管理员可访问'
 };
 
 function requireRole(...roles) {

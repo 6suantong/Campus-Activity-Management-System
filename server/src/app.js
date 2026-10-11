@@ -26,6 +26,9 @@ app.use('/api/registrations', registrationRoutes);
 // V2.0 教师端（本人活动名单/导出，活动归属鉴权）
 app.use('/api/teacher', require('./routes/teacher'));
 
+// V2.0 系统管理员端（账号状态维护，仅 admin 角色）
+app.use('/api/admin', require('./routes/admin'));
+
 // 统一 404
 app.use((req, res) => res.status(404).json({ code: 404, message: 'Not Found', data: null }));
 

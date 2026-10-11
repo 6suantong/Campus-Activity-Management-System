@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
     return fail(res, 400, '密码长度至少 6 位');
   }
   if (role && !['student', 'teacher'].includes(role)) {
-    return fail(res, 400, 'role 取值仅支持 student / teacher');
+    return fail(res, 400, 'role 取值仅支持 student / teacher（管理员账号由系统预置）');
   }
 
   try {
@@ -61,7 +61,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, user_no, password_hash, name, role FROM users WHERE user_no = ?',
+      'SELECT id, user_no, password_hash, name, role, account_status FROM users WHERE user_no = ?',
       [user_no]
     );
     if (rows.length === 0) {
@@ -71,6 +71,10 @@ router.post('/login', async (req, res) => {
     const okPwd = await bcrypt.compare(password, user.password_hash);
     if (!okPwd) {
       return fail(res, 401, '账号或密码错误');
+    }
+    // V2.0：停用账号禁止登录（管理员停用/恢复生效点）
+    if (user.account_status === 'disabled') {
+      return fail(res, 403, '账号已被停用，请联系系统管理员');
     }
     const token = jwt.sign(
       { id: user.id, user_no: user.user_no, name: user.name, role: user.role },
