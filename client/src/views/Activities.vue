@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { listActivities, registerActivity } from '../api/activity';
+import { listActivities, registerActivity, joinWaitlist } from '../api/activity';
 import { getUser } from '../utils/auth';
 
 const user = getUser();
@@ -46,15 +46,34 @@ async function onRegister(a) {
   registeringId.value = a.id;
   tipMsg.value = '';
   try {
-    await registerActivity(a.id);
-    a.my_registered = 1;
-    a.registered_count = Number(a.registered_count) + 1;
+    const res = await registerActivity(a.id);
+    // 需审核活动报名后为待审核（后端返回 status=pending），提示语不同
+    const pending = Number(a.need_review) === 1;
     tipType.value = 'ok';
-    tipMsg.value = `报名成功：${a.title}`;
+    tipMsg.value = pending ? `报名已提交，等待教师审核：${a.title}` : `报名成功：${a.title}`;
+    await load(); // 刷新名额与我的报名标记
   } catch (err) {
     tipType.value = 'fail';
     tipMsg.value = err.message || '报名失败';
     // 报名失败可能是状态变化（截止/满员），刷新列表
+    await load();
+  } finally {
+    registeringId.value = null;
+  }
+}
+
+// US-V2-05 满员活动申请候补
+async function onJoinWaitlist(a) {
+  registeringId.value = a.id;
+  tipMsg.value = '';
+  try {
+    await joinWaitlist(a.id);
+    tipType.value = 'ok';
+    tipMsg.value = `已加入「${a.title}」候补队列，可在"我的报名"查看排队顺序`;
+    await load();
+  } catch (err) {
+    tipType.value = 'fail';
+    tipMsg.value = err.message || '申请候补失败';
     await load();
   } finally {
     registeringId.value = null;
@@ -85,7 +104,11 @@ onMounted(load);
       <div v-for="a in list" :key="a.id"
         style="background:#fff;padding:20px 24px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.05)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h4 style="margin:0;font-size:17px">{{ a.title }}</h4>
+          <h4 style="margin:0;font-size:17px">
+            {{ a.title }}
+            <span v-if="Number(a.need_review) === 1"
+              style="font-size:11px;font-weight:normal;padding:2px 8px;border-radius:10px;background:#fef9c3;color:#ca8a04;margin-left:6px">需审核</span>
+          </h4>
           <span style="font-size:12px;padding:3px 10px;border-radius:12px"
             :style="stateStyle[a.channel_state] || stateStyle.closed">
             {{ a.channel_state_text || '报名中' }}
@@ -103,12 +126,19 @@ onMounted(load);
           <div>👨‍🏫 发布教师：{{ a.publisher_name }}（{{ a.publisher_no }}）</div>
         </div>
         <p style="margin:10px 0 0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.7">{{ a.description }}</p>
+        <p v-if="a.requirement" style="margin:8px 0 0;font-size:13px;color:#7c3aed">🎯 参加资格：{{ a.requirement }}</p>
 
-        <!-- REQ-03 学生报名操作区：根据 channel_state 控制按钮禁用（REQ-04） -->
+        <!-- REQ-03 学生报名操作区：根据 channel_state 控制按钮禁用（REQ-04）；V2.0 满员可申请候补 -->
         <div v-if="isStudent" style="margin-top:14px;text-align:right">
           <button v-if="a.my_registered" disabled
             style="background:#f3f4f6;color:#6b7280;cursor:default">
             ✓ 已报名
+          </button>
+          <!-- 满员且未报名：提供申请候补入口 -->
+          <button v-else-if="a.channel_state === 'full'" :disabled="registeringId === a.id"
+            @click="onJoinWaitlist(a)"
+            style="background:#2563eb;color:#fff">
+            {{ registeringId === a.id ? '提交中...' : '申请候补' }}
           </button>
           <button v-else :disabled="a.channel_state !== 'open' || registeringId === a.id"
             @click="onRegister(a)"
