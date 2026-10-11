@@ -11,6 +11,8 @@ CREATE TABLE `activities` (
   `register_start` DATETIME NOT NULL COMMENT '报名开始时间',
   `register_end` DATETIME NOT NULL COMMENT '报名截止时间',
   `description` TEXT NOT NULL COMMENT '活动简介',
+  `requirement` VARCHAR(500) DEFAULT NULL COMMENT '参加资格说明（V2.0，如"限大一/限软件学院"），为空表示不限',
+  `need_review` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否需要教师审核报名：0否 1是（V2.0）',
   `publisher_no` VARCHAR(32) NOT NULL COMMENT '发布教师工号(users.user_no)',
   `status` ENUM('open','closed','cancelled') NOT NULL DEFAULT 'open' COMMENT '活动状态:报名中/已关闭/已取消',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
